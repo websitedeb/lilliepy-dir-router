@@ -21,7 +21,7 @@ FileRouter("/path/to/your/pages/folder", verbose=True) # verbose, if set to true
 
 ## Syntax
 
-there are 3 special types of files/directories to use in this current release
+there are 4 special types of files/directories to use in this current release
 
 ### Folders
 
@@ -123,6 +123,19 @@ def id(params): # 1 parameter must be given so that this function can access the
         html.h1(f"Dynamic Content for ID: {params['id']}"), #params is a dictionary, trust me, knowing that helps you alot
         html.p("This page dynamically renders content based on the slug."),
     ])
+```
+
+#### ```+not_found.x.py```
+this page (or component) will handle all 404 error routes
+
+##### Syntax :-
+```python
+from reactpy import component, html
+
+
+@component
+def not_found(): #function's name MUST be not_found
+  return html.h1("Not found")
 ```
 
 ### When to use ```.x.py``` and ```.py```

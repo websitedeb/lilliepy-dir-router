@@ -5,3 +5,4 @@ x make +layout.x.py (layout file) work > scraped, reason being it just wouldnt w
 √ make finder be able to find pages folder directory from 
 √ make +not_found.x.py to render on 404 pages
 • make folders be able to have slug values (children files can use these slug vlaues by adding .slug. their name)
+√ fill out readme
