@@ -3,7 +3,7 @@ import re
 import importlib.util
 from pathlib import Path
 from reactpy_router import route, browser_router, use_params
-from reactpy import component, run
+from reactpy import component, run, vdom_to_html, html_to_vdom
 
 
 def get_parents_until_specific_folder(file_path, target_folder):
@@ -41,6 +41,8 @@ def FileRouter(route_path, verbose=False):
     routes = []
     silent = re.compile(r'\([^\)]*\)')
     not_found_route = None
+    error_route = None
+    err = None
 
     for root, dirs, files in os.walk(path, True):
         relative_path = os.path.relpath(root, start=path)
@@ -100,6 +102,26 @@ def FileRouter(route_path, verbose=False):
                 else:
                     print(f"Function '{func_name}' not found in {names}")
 
+            # Handle +error.x.py
+            elif names == "+error.x.py":
+                module_path = os.path.join(root, names)
+                module_name = module_path.replace(os.getcwd() + '/',
+                                                  '').replace('/',
+                                                              '.').replace(
+                                                                  '.x.py', '')
+                spec = importlib.util.spec_from_file_location(
+                    module_name, module_path)
+                package = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(package)
+
+                func_name = names.replace(".x.py", "").replace("+", "")
+                func = getattr(package, func_name, None)
+                errorCode = getattr(package, 'errorCode', None)
+
+                if func and errorCode:
+                    error_route = func
+                    err = errorCode
+
             # Handle slug routes (with dynamic parameters)
             elif "+[" and "]" in names:
                 module_path = os.path.join(root, names)
@@ -137,6 +159,61 @@ def FileRouter(route_path, verbose=False):
                 else:
                     print(f"Function '{func_name}' not found in {names}, slug")
 
+            # Handle file routes (with dynamic parameters)
+            if "+{" and "}" in names:
+                pass  # use_search_params
+
+            # Handles server components
+            elif ".server.x.py" in names:
+                module_path = os.path.join(root, names)
+                module_name = module_path.replace(
+                    os.getcwd() + '/',
+                    '').replace('/',
+                                '.').replace('.server.x.py',
+                                             '').replace("+[",
+                                                         "").replace("]", "")
+                spec = importlib.util.spec_from_file_location(
+                    module_name, module_path)
+
+                package = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(package)
+
+                func_name = names.replace(".server.x.py", "")
+                func_s = getattr(package, func_name, None)
+
+                if func_s:
+                    route_path_clean = os.path.join(
+                        relative_path,
+                        names.replace('.server.x.py', '').replace('_', '-'))
+                    route_path_clean = route_path_clean.replace("\\", "/")
+
+                    def create_dehydrate(func_s):
+
+                        @component
+                        def dehydrate():
+                            try:
+                                rendered_vdom = func_s().render()
+                                rendered_html = vdom_to_html(rendered_vdom)
+                                return html_to_vdom(rendered_html)
+                            except Exception as e:
+                                return html_to_vdom(
+                                    f"<h1>Error rendering component: {str(e)}</h1>"
+                                )
+
+                        return dehydrate
+
+                    unique_dehydrate = create_dehydrate(func_s)
+                    r = route(f"/{route_path_clean}", unique_dehydrate())
+                    routes.append(r)
+                else:
+                    print(
+                        f"Function '{func_name}' not found in {names}, server")
+
+            # Handles protected routes
+            elif '.protected.x.py' in names:
+                module_path = os.path.join(root, names)
+                # ...
+
             # Handle normal routes
             else:
                 module_path = os.path.join(root, names)
@@ -171,6 +248,14 @@ def FileRouter(route_path, verbose=False):
             return not_found_route()
 
         routes.append(route("{404:any}", not_found()))
+
+    if error_route and err:
+
+        @component
+        def error():
+            return error_route()
+
+        routes.append(route("{" + str(err) + "}" + ":any", error()))
 
     if routes:
         if verbose:

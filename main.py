@@ -20,6 +20,7 @@ setup(
         'Operating System :: OS Independent',
     ],
     description='file based router for reactpy or lilliepy framework',
+    keywords=["lilliepy", "lilliepy-dir-router", "reactpy", "router", "file router", "file based router", "file-router", "file-based-router"]
 )
 """
 
