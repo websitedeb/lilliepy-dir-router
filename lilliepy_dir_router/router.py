@@ -40,6 +40,8 @@ def FileRouter(route_path, verbose=False):
 
     routes = []
     silent = re.compile(r'\([^\)]*\)')
+    global layout
+    layout = None
     not_found_route = None
     error_route = None
     err = None
@@ -159,10 +161,6 @@ def FileRouter(route_path, verbose=False):
                 else:
                     print(f"Function '{func_name}' not found in {names}, slug")
 
-            # Handle file routes (with dynamic parameters)
-            if "+{" and "}" in names:
-                pass  # use_search_params
-
             # Handles server components
             elif ".server.x.py" in names:
                 module_path = os.path.join(root, names)
@@ -209,10 +207,23 @@ def FileRouter(route_path, verbose=False):
                     print(
                         f"Function '{func_name}' not found in {names}, server")
 
-            # Handles protected routes
-            elif '.protected.x.py' in names:
+            # Handles +layout.x.py
+            elif "+layout.x.py" in names:
                 module_path = os.path.join(root, names)
-                # ...
+                module_name = module_path.replace(os.getcwd() + '/',
+                                                  '').replace('/',
+                                                              '.').replace(
+                                                                  '.x.py', '')
+                spec = importlib.util.spec_from_file_location(
+                    module_name, module_path)
+                package = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(package)
+
+                func_name = names.replace(".x.py", "").replace("+", "")
+                func = getattr(package, func_name, None)
+
+                if func:
+                    layout = func
 
             # Handle normal routes
             else:
@@ -258,18 +269,36 @@ def FileRouter(route_path, verbose=False):
         routes.append(route("{" + str(err) + "}" + ":any", error()))
 
     if routes:
-        if verbose:
-            print(*routes)
 
-            @component
-            def root():
-                return browser_router(*routes)
+        if layout:
+            if verbose:
+                print(*routes)
 
-            run(root)
+                @component
+                def root():
+                    return layout(browser_router(*routes))
+
+                run(root)
+            else:
+
+                @component
+                def root():
+                    return layout(browser_router(*routes))
+
+                run(root)
         else:
+            if verbose:
+                print(*routes)
 
-            @component
-            def root():
-                return browser_router(*routes)
+                @component
+                def root():
+                    return browser_router(*routes)
 
-            run(root)
+                run(root)
+            else:
+
+                @component
+                def root():
+                    return browser_router(*routes)
+
+                run(root)
