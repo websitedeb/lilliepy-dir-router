@@ -23,7 +23,6 @@ setup(
     keywords=["lilliepy", "lilliepy-dir-router", "reactpy", "router", "file router", "file based router", "file-router", "file-based-router"]
 )
 """
-
 from lilliepy_dir_router import FileRouter
 
 FileRouter("test", True)

@@ -3,14 +3,15 @@ import re
 import importlib.util
 from pathlib import Path
 from reactpy_router import route, browser_router, use_params
-from reactpy import component, run, vdom_to_html, html_to_vdom
-from sanic import Sanic
-import sanic.response as res
-import threading
+from reactpy import component, vdom_to_html, html_to_vdom
+from reactpy.backend.flask import configure, serve_development_app
+from flask import Flask, request, jsonify
+from simple_websocket.aiows import asyncio
+from flask_cors import CORS
 
-t1 = threading.Thread(target=Sanic, args=("server", ))
-@t1.get(r"/")
-#...
+api_server = Flask(__name__)
+CORS(api_server)
+
 
 def get_parents_until_specific_folder(file_path, target_folder):
     file_path = Path(file_path).resolve()
@@ -181,9 +182,17 @@ def FileRouter(route_path, verbose=False):
                 spec.loader.exec_module(package)
 
                 handler = getattr(package, 'handler', None)
+                method = getattr(package, 'method', None)
 
-                if handler:
-                    pass
+                if handler and method:
+                    route_path_clean = os.path.join(
+                        relative_path,
+                        names.replace('.api.x.py', '').replace('_', '-'))
+                    route_path_clean = route_path_clean.replace("\\", "/")
+
+                    @api_server.route(f"/{route_path_clean}", methods=method)
+                    def api_route():
+                        return handler(request, jsonify)
 
             # Handles server components
             elif ".server.x.py" in names:
@@ -302,20 +311,16 @@ def FileRouter(route_path, verbose=False):
                 def root():
                     return layout(browser_router(*routes))
 
-                t2 = threading.Thread(target=api_server.run, args=(
-                    "0.0.0.0", 8080, ))
-                t1.start()
-                t2.start()
+                configure(api_server, root)
+                asyncio.run(serve_development_app(api_server, "0.0.0.0", 8080))
             else:
 
                 @component
                 def root():
                     return layout(browser_router(*routes))
 
-                t2 = threading.Thread(target=api_server.run, args=(
-                    "0.0.0.0", 8080, ))
-                t1.start()
-                t2.start()
+                configure(api_server, root)
+                asyncio.run(serve_development_app(api_server, "0.0.0.0", 8080))
         else:
             if verbose:
                 print(*routes)
@@ -324,17 +329,13 @@ def FileRouter(route_path, verbose=False):
                 def root():
                     return browser_router(*routes)
 
-                t2 = threading.Thread(target=api_server.run, args=(
-                    "0.0.0.0", 8080, ))
-                t1.start()
-                t2.start()
+                configure(api_server, root)
+                asyncio.run(serve_development_app(api_server, "0.0.0.0", 8080))
             else:
 
                 @component
                 def root():
                     return browser_router(*routes)
 
-                t2 = threading.Thread(target=api_server.run, args=(
-                    "0.0.0.0", 8080, ))
-                t1.start()
-                t2.start()
+                configure(api_server, root)
+                asyncio.run(serve_development_app(api_server, "0.0.0.0", 8080))
