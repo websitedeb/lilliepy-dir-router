@@ -184,7 +184,7 @@ def FileRouter(route_path, verbose=False):
                 setting = getattr(package, 'settings', None)
 
                 if handler and setting:
-                    api_server.route(f"{route_path}/{names.replace('.api.x.py', '')}", method=[f"{setting['type']}"], handler(req=request, res=jsonify))
+                    api_server.route(f"{route_path}/{names.replace('.api.x.py', '')}", method=[f"{setting['type']}"], handler(request, jsonify))
 
             # Handles server components
             elif ".server.x.py" in names:
