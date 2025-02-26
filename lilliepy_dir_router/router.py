@@ -4,13 +4,13 @@ import importlib.util
 from pathlib import Path
 from reactpy_router import route, browser_router, use_params
 from reactpy import component, run, vdom_to_html, html_to_vdom
-from flask import Flask, request, jsonify
-from flask_cors import CORS
+from sanic import Sanic
+import sanic.response as res
 import threading
 
-api_server = Flask(__name__)
-CORS(api_server)
-
+t1 = threading.Thread(target=Sanic, args=("server", ))
+@t1.get(r"/")
+#...
 
 def get_parents_until_specific_folder(file_path, target_folder):
     file_path = Path(file_path).resolve()
@@ -181,12 +181,9 @@ def FileRouter(route_path, verbose=False):
                 spec.loader.exec_module(package)
 
                 handler = getattr(package, 'handler', None)
-                setting = getattr(package, 'settings', None)
 
-                if handler and setting:
-                    @api_server.route(f"{route_path}/{names.replace('.api.x.py', '')}", method=[f"{setting['type']}"])
-                    def route_handler():
-                        return handler(request, jsonify)
+                if handler:
+                    pass
 
             # Handles server components
             elif ".server.x.py" in names:
@@ -305,7 +302,6 @@ def FileRouter(route_path, verbose=False):
                 def root():
                     return layout(browser_router(*routes))
 
-                t1 = threading.Thread(target=run, args=(root, ))
                 t2 = threading.Thread(target=api_server.run, args=(
                     "0.0.0.0", 8080, ))
                 t1.start()
@@ -316,7 +312,6 @@ def FileRouter(route_path, verbose=False):
                 def root():
                     return layout(browser_router(*routes))
 
-                t1 = threading.Thread(target=run, args=(root, ))
                 t2 = threading.Thread(target=api_server.run, args=(
                     "0.0.0.0", 8080, ))
                 t1.start()
@@ -329,7 +324,6 @@ def FileRouter(route_path, verbose=False):
                 def root():
                     return browser_router(*routes)
 
-                t1 = threading.Thread(target=run, args=(root, ))
                 t2 = threading.Thread(target=api_server.run, args=(
                     "0.0.0.0", 8080, ))
                 t1.start()
@@ -340,7 +334,6 @@ def FileRouter(route_path, verbose=False):
                 def root():
                     return browser_router(*routes)
 
-                t1 = threading.Thread(target=run, args=(root, ))
                 t2 = threading.Thread(target=api_server.run, args=(
                     "0.0.0.0", 8080, ))
                 t1.start()
