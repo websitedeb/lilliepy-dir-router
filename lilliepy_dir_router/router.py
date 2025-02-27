@@ -2,7 +2,7 @@ import os
 import re
 import importlib.util
 from pathlib import Path
-from reactpy_router import route, browser_router, use_params
+from reactpy_router import route, browser_router, use_params, use_search_params
 from reactpy import component, vdom_to_html, html_to_vdom
 from reactpy.backend.flask import configure, serve_development_app
 from flask import Flask, request, jsonify
@@ -161,12 +161,50 @@ def FileRouter(route_path, verbose=False):
                     @component
                     def slug_shot():
                         vals = use_params()
-                        return function(params=vals).render()
+                        return function(params=vals)
 
                     r = route(f"/{route_path_cleaner}", slug_shot())
                     routes.append(r)
                 else:
                     print(f"Function '{func_name}' not found in {names}, slug")
+
+            # Handle slug routes (with search parameters)
+            elif "+{" and "}" in names:  #fix
+                module_path2 = os.path.join(root, names)
+                module_name2 = module_path2.replace(
+                    os.getcwd() + '/',
+                    '').replace('/',
+                                '.').replace('.x.py',
+                                             '').replace("+{",
+                                                         "").replace("}", "")
+
+                spec2 = importlib.util.spec_from_file_location(
+                    module_name2, module_path2)
+                package2 = importlib.util.module_from_spec(spec2)
+                spec2.loader.exec_module(package2)
+
+                func_name2 = names.replace(
+                    ".x.py", "").removeprefix("+{").removesuffix("}")
+                function2 = getattr(package2, func_name2, None)
+
+                route_path_clean2 = os.path.join(
+                    relative_path,
+                    names.replace('.x.py',
+                                  '').replace('_', '-')).replace("+{", "{")
+                route_path_cleaner = route_path_clean2.replace("\\", "/")
+
+                if function2:
+
+                    @component
+                    def dy():
+                        val = use_search_params()
+                        return function2(params=val)
+
+                    ro = route(f"/{route_path_cleaner}", dy())
+                    routes.append(ro)
+                else:
+                    print(
+                        f"Function '{func_name2}' not found in {names}, slug")
 
             # Handles api routes
             elif ".api.x.py" in names:
