@@ -5,7 +5,7 @@ from pathlib import Path
 from reactpy_router import route, browser_router, use_params, use_search_params
 from reactpy import component, vdom_to_html, html_to_vdom
 from reactpy.backend.flask import configure, serve_development_app
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from simple_websocket.aiows import asyncio
 from flask_cors import CORS
 
@@ -52,15 +52,26 @@ def FileRouter(route_path, verbose=False):
     not_found_route = None
     error_route = None
     err = None
+    public_folder_path = None
 
     for root, dirs, files in os.walk(path, True):
         relative_path = os.path.relpath(root, start=path)
+
         if relative_path == ".":
             relative_path = ""
 
         # Handle silent routes (grouping routes)
         if silent.search(relative_path):
             relative_path = ""
+
+        # Handles Asset Routes
+        if "+public" in relative_path:
+            public_folder_path = os.path.join(root)
+            if public_folder_path:
+
+                @api_server.route("/public/<path:filename>")
+                def serve_public_file(filename):
+                    return send_from_directory(public_folder_path, filename)
 
         for names in files:
 
@@ -169,7 +180,7 @@ def FileRouter(route_path, verbose=False):
                     print(f"Function '{func_name}' not found in {names}, slug")
 
             # Handle slug routes (with search parameters)
-            elif "+{" and "}" in names:  #fix
+            elif "+{" and "}" in names:  # e.g: /age/age?age=18
                 module_path2 = os.path.join(root, names)
                 module_name2 = module_path2.replace(
                     os.getcwd() + '/',

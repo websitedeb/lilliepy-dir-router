@@ -8,6 +8,7 @@ a router that uses folders and files to create routes for reactpy files (is used
 * importlib
 * os
 * re
+* asyncio
 
 ## Setup
 if you are using the lilliepy framework, then this part should be already dont for you, if not, then read this
@@ -124,6 +125,9 @@ def id(params): # 1 parameter must be given so that this function can access the
         html.p("This page dynamically renders content based on the slug."),
     ])
 ```
+
+#### Dy Files:
+same as slug files but uses the ?[QUERY]=[VAL] method instead
 
 #### ```+not_found.x.py```
 this page (or component) will handle all 404 error routes

@@ -8,6 +8,7 @@
 √ fill out readme
 x make folders be able to have slug values (children files can use these slug vlaues by adding .slug. their name) -> no reason to make this, use the slug files 
 √ make +error.x.py file for handling other errors other than not found
-• make protected routes to protect routes (.protected.x.py)
-• make +{}.x.py files (use_search_params)
+√ make +{}.x.py files (use_search_params)
 √ make server routes (.api.x.py)
+√ make asset routes (+public/)
+• make protected routes to protect routes (.protected.x.py)
