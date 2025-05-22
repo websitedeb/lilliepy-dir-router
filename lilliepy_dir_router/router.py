@@ -3,9 +3,9 @@ import re
 import importlib.util
 from pathlib import Path
 from reactpy_router import route, browser_router, use_params, use_search_params
-from reactpy import component, vdom_to_html, html_to_vdom
-from reactpy.backend.flask import configure, serve_development_app
-from flask import Flask, request, jsonify, send_from_directory
+from reactpy import component, vdom_to_html, html_to_vdom, html
+from reactpy.backend.flask import configure, serve_development_app, use_request
+from flask import Flask, request, jsonify, send_from_directory, make_response
 from simple_websocket.aiows import asyncio
 from flask_cors import CORS
 
@@ -239,9 +239,18 @@ def FileRouter(route_path, verbose=False):
                         names.replace('.api.x.py', '').replace('_', '-'))
                     route_path_clean = route_path_clean.replace("\\", "/")
 
-                    @api_server.route(f"/{route_path_clean}", methods=method)
-                    def api_route():
-                        return handler(request, jsonify)
+                    def make_api_route(handler):
+
+                        def api_route():
+                            return handler(request, make_response, jsonify)
+
+                        return api_route
+
+                    api_server.add_url_rule(
+                        f"/{route_path_clean}",
+                        endpoint=f"api_route_{route_path_clean}",
+                        view_func=make_api_route(handler),
+                        methods=method)
 
             # Handles server components
             elif ".server.x.py" in names:
@@ -306,6 +315,50 @@ def FileRouter(route_path, verbose=False):
 
                 if func:
                     layout = func
+
+            # Handles protected routes
+            elif "+<" and ">" in names:
+                module_path = os.path.join(root, names)
+                module_name = module_path.replace(
+                    os.getcwd() + '/',
+                    '').replace('/',
+                                '.').replace('.x.py',
+                                             '').replace("+<",
+                                                         "").replace(">", "")
+
+                spec = importlib.util.spec_from_file_location(
+                    module_name, module_path)
+
+                package = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(package)
+
+                func_name = names.replace(".x.py",
+                                          "").replace("+<",
+                                                      "").replace(">", "")
+
+                prot_func = getattr(package, func_name, None)
+
+                if prot_func:
+                    route_path_clean = os.path.join(
+                        relative_path,
+                        names.replace('.x.py', '').replace('_', '-')).replace(
+                            "+<", "").replace(">", "")
+                    route_path_clean = route_path_clean.replace("\\", "/")
+
+                    @component
+                    def goback(url):
+                        return html.script({},
+                                           f"window.location.href = '{url}';")
+
+                    @component
+                    def protected():
+                        return prot_func(use_request().cookies, goback)
+
+                    r = route(f"/{route_path_clean}", protected())
+                    routes.append(r)
+
+                else:
+                    print(f"Function '{func_name}' not found in {names}")
 
             # Handle normal routes
             else:
