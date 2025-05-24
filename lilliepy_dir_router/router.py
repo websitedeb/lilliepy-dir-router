@@ -8,9 +8,33 @@ from reactpy.backend.flask import configure, serve_development_app, use_request
 from flask import Flask, request, jsonify, send_from_directory, make_response
 from simple_websocket.aiows import asyncio
 from flask_cors import CORS
+import markdown
 
 api_server = Flask(__name__)
 CORS(api_server)
+
+
+def find_markdown_file(func_name, start_dir, markdown_files, path_root):
+    current_dir = Path(start_dir).resolve()
+    path_root = Path(path_root).resolve()
+
+    while True:
+        if not str(current_dir).startswith(str(path_root)):
+            break  # stop if we're outside the route_path root
+
+        md_file_name = os.path.relpath(os.path.join(current_dir,
+                                                    func_name + ".x.md"),
+                                       start=path_root).replace("\\", "/")
+
+        if md_file_name in markdown_files:
+            return markdown_files[md_file_name]
+
+        if current_dir == current_dir.parent:
+            break  # reached filesystem root
+
+        current_dir = current_dir.parent
+
+    return "<p>Markdown content not found.</p>"
 
 
 def get_parents_until_specific_folder(file_path, target_folder):
@@ -53,6 +77,7 @@ def FileRouter(route_path, verbose=False):
     error_route = None
     err = None
     public_folder_path = None
+    markdown_files = {}
 
     for root, dirs, files in os.walk(path, True):
         relative_path = os.path.relpath(root, start=path)
@@ -72,6 +97,13 @@ def FileRouter(route_path, verbose=False):
                 @api_server.route("/public/<path:filename>")
                 def serve_public_file(filename):
                     return send_from_directory(public_folder_path, filename)
+
+        # Parse any *.x.md files
+        for md_file in Path(root).glob("*.x.md"):
+            relative_md_path = os.path.relpath(md_file,
+                                               start=path).replace("\\", "/")
+            content = md_file.read_text(encoding="utf-8")
+            markdown_files[relative_md_path] = markdown.markdown(content)
 
         for names in files:
 
@@ -359,6 +391,36 @@ def FileRouter(route_path, verbose=False):
 
                 else:
                     print(f"Function '{func_name}' not found in {names}")
+
+            # Handles markdown routes
+            elif names.endswith(".md.x.py"):
+                module_path = os.path.join(root, names)
+                module_name = module_path.replace(os.getcwd() + '/',
+                                                  '').replace('.md.x.py', '')
+                spec = importlib.util.spec_from_file_location(
+                    module_name, module_path)
+                package = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(package)
+
+                func_name = names.replace(".md.x.py", "")
+                func_md = getattr(package, func_name, None)
+
+                if func_md:
+                    md_content = find_markdown_file(func_name, root,
+                                                    markdown_files, path)
+
+                    route_path_clean = os.path.join(
+                        relative_path,
+                        names.replace('.md.x.py',
+                                      '').replace('_',
+                                                  '-')).replace("\\", "/")
+
+                    @component
+                    def md():
+                        return html_to_vdom(md_content)
+
+                    r = route(f"/{route_path_clean}", func_md(md()))
+                    routes.append(r)
 
             # Handle normal routes
             else:
