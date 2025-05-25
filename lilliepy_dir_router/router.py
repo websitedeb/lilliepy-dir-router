@@ -14,27 +14,34 @@ api_server = Flask(__name__)
 CORS(api_server)
 
 
-def find_markdown_file(func_name, start_dir, markdown_files, path_root):
+def find_nearest_markdown(func_name, start_dir, route_root, markdown_files,
+                          not_found):
+    local_md_path = os.path.relpath(os.path.join(start_dir,
+                                                 func_name + ".x.md"),
+                                    start=route_root).replace("\\", "/")
+
+    if local_md_path in markdown_files:
+        return markdown_files[local_md_path]
+
     current_dir = Path(start_dir).resolve()
-    path_root = Path(path_root).resolve()
+    route_root = Path(route_root).resolve()
 
     while True:
-        if not str(current_dir).startswith(str(path_root)):
-            break  # stop if we're outside the route_path root
+        markdown_folder = current_dir / "+markdown"
+        if markdown_folder.exists() and markdown_folder.is_dir():
+            md_file_path = os.path.relpath(
+                markdown_folder / (func_name + ".x.md"),
+                start=route_root).replace("\\", "/")
 
-        md_file_name = os.path.relpath(os.path.join(current_dir,
-                                                    func_name + ".x.md"),
-                                       start=path_root).replace("\\", "/")
+            if md_file_path in markdown_files:
+                return markdown_files[md_file_path]
 
-        if md_file_name in markdown_files:
-            return markdown_files[md_file_name]
-
-        if current_dir == current_dir.parent:
-            break  # reached filesystem root
+        if current_dir == route_root:
+            break
 
         current_dir = current_dir.parent
 
-    return "<p>Markdown content not found.</p>"
+    return not_found()
 
 
 def get_parents_until_specific_folder(file_path, target_folder):
@@ -79,6 +86,14 @@ def FileRouter(route_path, verbose=False):
     public_folder_path = None
     markdown_files = {}
 
+    #  Collect all markdown files
+    for root, dirs, files in os.walk(path, True):
+        for md_file in Path(root).glob("*.x.md"):
+            relative_md_path = os.path.relpath(md_file,
+                                               start=path).replace("\\", "/")
+            content = md_file.read_text(encoding="utf-8")
+            markdown_files[relative_md_path] = markdown.markdown(content)
+
     for root, dirs, files in os.walk(path, True):
         relative_path = os.path.relpath(root, start=path)
 
@@ -97,13 +112,6 @@ def FileRouter(route_path, verbose=False):
                 @api_server.route("/public/<path:filename>")
                 def serve_public_file(filename):
                     return send_from_directory(public_folder_path, filename)
-
-        # Parse any *.x.md files
-        for md_file in Path(root).glob("*.x.md"):
-            relative_md_path = os.path.relpath(md_file,
-                                               start=path).replace("\\", "/")
-            content = md_file.read_text(encoding="utf-8")
-            markdown_files[relative_md_path] = markdown.markdown(content)
 
         for names in files:
 
@@ -406,8 +414,9 @@ def FileRouter(route_path, verbose=False):
                 func_md = getattr(package, func_name, None)
 
                 if func_md:
-                    md_content = find_markdown_file(func_name, root,
-                                                    markdown_files, path)
+                    md_content = find_nearest_markdown(func_name, root, path,
+                                                       markdown_files,
+                                                       not_found_route)
 
                     route_path_clean = os.path.join(
                         relative_path,
