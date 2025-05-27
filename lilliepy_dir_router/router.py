@@ -2,7 +2,7 @@ import os
 import re
 import importlib.util
 from pathlib import Path
-from reactpy_router import route, browser_router, use_params, use_search_params
+from reactpy_router import navigate, route, browser_router, use_params, use_search_params
 from reactpy import component, vdom_to_html, html_to_vdom, html
 from reactpy.backend.flask import configure, serve_development_app, use_request
 from flask import Flask, request, jsonify, send_from_directory, make_response
@@ -387,8 +387,7 @@ def FileRouter(route_path, verbose=False):
 
                     @component
                     def goback(url):
-                        return html.script({},
-                                           f"window.location.href = '{url}';")
+                        return navigate(url)
 
                     @component
                     def protected():

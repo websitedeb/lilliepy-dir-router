@@ -12,3 +12,4 @@ x make folders be able to have slug values (children files can use these slug vl
 √ make server routes (.api.x.py)
 √ make asset routes (+public/)
 √ make protected routes to protect routes (.protected.x.py)
+√ make markdown routes
