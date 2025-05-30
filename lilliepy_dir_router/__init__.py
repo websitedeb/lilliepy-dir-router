@@ -1,3 +1,3 @@
-from .router import FileRouter
+from .router import FileRouter, use_parallel
 
-__all__ = ["FileRouter"]
+__all__ = ["FileRouter", "use_parallel"]

@@ -13,6 +13,15 @@ import markdown
 api_server = Flask(__name__)
 CORS(api_server)
 
+global parallel_routes
+parallel_routes = {}
+
+
+def use_parallel(func_name):
+    for name in parallel_routes.keys():
+        if name == func_name:
+            return parallel_routes[name]()
+
 
 def find_nearest_markdown(func_name, start_dir, route_root, markdown_files,
                           not_found):
@@ -429,6 +438,22 @@ def FileRouter(route_path, verbose=False):
 
                     r = route(f"/{route_path_clean}", func_md(md()))
                     routes.append(r)
+
+            # Handles parallel routes
+            elif "+@" in names:
+                module_path = os.path.join(root, names)
+                module_name = module_path.replace(
+                    os.getcwd() + '/',
+                    "").replace('/', '.').replace('.x.py',
+                                                  '').replace("+@", "")
+                spec = importlib.util.spec_from_file_location(
+                    module_name, module_path)
+                package = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(package)
+                func_name = names.replace(".x.py", "").replace("+@", "")
+                func = getattr(package, func_name, None)
+                if func:
+                    parallel_routes[func_name] = func
 
             # Handle normal routes
             else:
