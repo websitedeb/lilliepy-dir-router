@@ -87,6 +87,7 @@ def FileRouter(route_path, verbose=False):
 
     routes = []
     silent = re.compile(r'\([^\)]*\)')
+    private = re.compile(r'(?:^|/)\+_[^/]+')
     global layout
     layout = None
     not_found_route = None
@@ -108,6 +109,16 @@ def FileRouter(route_path, verbose=False):
 
         if relative_path == ".":
             relative_path = ""
+
+        # handle private routes
+        if private.search(relative_path):
+            continue
+
+        # Modify `dirs` to prevent descending into private subdirs
+        dirs[:] = [
+            d for d in dirs
+            if not private.match(os.path.join(relative_path, d))
+        ]
 
         # Handle silent routes (grouping routes)
         if silent.search(relative_path):
