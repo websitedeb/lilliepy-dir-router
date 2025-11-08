@@ -330,7 +330,9 @@ def FileRouter(route_path, verbose=False):
                 func_name = names.replace(".server.x.py", "")
                 func_s = getattr(package, func_name, None)
 
-                if func_s:
+                logic = getattr(package, "logic", None)
+
+                if func_s and logic:
                     route_path_clean = os.path.join(
                         relative_path,
                         names.replace('.server.x.py', '').replace('_', '-'))
@@ -341,8 +343,9 @@ def FileRouter(route_path, verbose=False):
                         @component
                         def dehydrate():
                             try:
-                                rendered_vdom = func_s().render()
-                                rendered_html = vdom_to_html(rendered_vdom)
+                                rendered_vdom = func_s(logic())
+                                rendered_html = vdom_to_html(
+                                    rendered_vdom.render())
                                 return html_to_vdom(rendered_html)
                             except Exception as e:
                                 return html_to_vdom(
@@ -465,6 +468,41 @@ def FileRouter(route_path, verbose=False):
                 func = getattr(package, func_name, None)
                 if func:
                     parallel_routes[func_name] = func
+
+            # Handles +middleware.py
+            elif "+middleware.x.py" in names:
+                module_path = os.path.join(root, names)
+                module_name = module_path.replace(
+                    os.getcwd() + '/',
+                    '').replace('/', '.').replace('.py', '').replace("+", "")
+                spec = importlib.util.spec_from_file_location(
+                    module_name, module_path)
+                package = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(package)
+                func_name = "middleware"
+                func = getattr(package, func_name, None)
+
+                if func:
+
+                    def make_middleware(f):
+                        prev = ""
+
+                        @api_server.before_request
+                        def _mw():
+                            nonlocal prev
+                            if prev != request.full_path and not request.full_path.startswith(
+                                    "/_reactpy"):
+                                f(request)
+                                prev = request.full_path
+                            else:
+                                pass
+
+                        return _mw
+
+                    make_middleware(func)
+
+                else:
+                    print(f"Function '{func_name}' not found in {names}")
 
             # Handle normal routes
             else:

@@ -14,5 +14,8 @@ x make folders be able to have slug values (children files can use these slug vl
 √ make protected routes to protect routes (.protected.x.py)
 √ make markdown routes
 √ make parallel routes (+@.x.py and use_parallel function)
-* make private folders (_folder)
-* make catch all files (+*.x.py)
+√ make private folders (_folder)
+x make catch all files (+*.x.py) -> not_found already handles this
+√ make +middleware.x.py
+x make preloaded/cached routes -> flask does this for us
+√ update server components to be able to run backend code on them -> wish it could acutally run on the server, specifically flask side
